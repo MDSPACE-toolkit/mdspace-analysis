@@ -1,0 +1,4 @@
+h5py>=3.8
+numpy>=1.23
+pytest>=7
+autopep8
