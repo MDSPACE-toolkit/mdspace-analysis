@@ -228,3 +228,32 @@ def test_real_mdspace_archive_registered_frames_are_close_in_rmsd():
 
             error = rmsd(registered, reference)
             assert error < 2.0, f"frame {frame}: registered C-alpha RMSD = {error}"
+
+def test_align_coordinates_recovers_known_isometry_on_real_hdf5_structure():
+    with MdspaceHdf5(REAL_ARCHIVE) as archive:
+        reference = archive.registered(0, selection="ca")
+
+    angle = np.deg2rad(37.0)
+
+    rotation = np.array(
+        [
+            [np.cos(angle), -np.sin(angle), 0.0],
+            [np.sin(angle),  np.cos(angle), 0.0],
+            [0.0,            0.0,           1.0],
+        ],
+        dtype=float,
+    )
+
+    translation = np.array([120.0, -80.0, 35.0], dtype=float)
+
+    mobile = (rotation @ reference.T).T + translation
+
+    aligned = align_coordinates(mobile, reference)
+
+    assert_coordinates_close(
+        aligned,
+        reference,
+        rmsd_tol=1e-10,
+        max_tol=1e-10,
+        label="known isometry alignment",
+    )
