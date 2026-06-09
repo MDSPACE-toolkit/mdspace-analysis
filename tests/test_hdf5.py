@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import numpy as np
+import h5py
 
 from mdspace_analysis import MdspaceHdf5
 from mdspace_analysis.geometry import align_coordinates, rmsd
@@ -229,6 +230,7 @@ def test_real_mdspace_archive_registered_frames_are_close_in_rmsd():
             error = rmsd(registered, reference)
             assert error < 2.0, f"frame {frame}: registered C-alpha RMSD = {error}"
 
+
 def test_align_coordinates_recovers_known_isometry_on_real_hdf5_structure():
     with MdspaceHdf5(REAL_ARCHIVE) as archive:
         reference = archive.registered(0, selection="ca")
@@ -238,8 +240,8 @@ def test_align_coordinates_recovers_known_isometry_on_real_hdf5_structure():
     rotation = np.array(
         [
             [np.cos(angle), -np.sin(angle), 0.0],
-            [np.sin(angle),  np.cos(angle), 0.0],
-            [0.0,            0.0,           1.0],
+            [np.sin(angle), np.cos(angle), 0.0],
+            [0.0, 0.0, 1.0],
         ],
         dtype=float,
     )
@@ -257,3 +259,154 @@ def test_align_coordinates_recovers_known_isometry_on_real_hdf5_structure():
         max_tol=1e-10,
         label="known isometry alignment",
     )
+
+
+def test_selection_from_pdb_ca(tmp_path: Path) -> None:
+    archive_pdb_text = "\n".join(
+        [
+            "ATOM      1  N   ALA A   1       0.000   0.000   0.000  1.00  0.00           N",
+            "ATOM      2  CA  ALA A   1       1.000   0.000   0.000  1.00  0.00           C",
+            "ATOM      3  C   ALA A   1       2.000   0.000   0.000  1.00  0.00           C",
+            "ATOM      4  N   GLY A   2       3.000   0.000   0.000  1.00  0.00           N",
+            "ATOM      5  CA  GLY A   2       4.000   0.000   0.000  1.00  0.00           C",
+            "ATOM      6  C   GLY A   2       5.000   0.000   0.000  1.00  0.00           C",
+            "ATOM      7  N   SER A   3       6.000   0.000   0.000  1.00  0.00           N",
+            "ATOM      8  CA  SER A   3       7.000   0.000   0.000  1.00  0.00           C",
+            "ATOM      9  C   SER A   3       8.000   0.000   0.000  1.00  0.00           C",
+            "END",
+            "",
+        ]
+    )
+
+    external_pdb_text = "\n".join(
+        [
+            "ATOM    101  N   ALA A   1       0.000   0.000   0.000  1.00  0.00           N",
+            "ATOM    102  CA  ALA A   1       1.000   0.000   0.000  1.00  0.00           C",
+            "ATOM    103  C   ALA A   1       2.000   0.000   0.000  1.00  0.00           C",
+            "ATOM    107  N   SER A   3       6.000   0.000   0.000  1.00  0.00           N",
+            "ATOM    108  CA  SER A   3       7.000   0.000   0.000  1.00  0.00           C",
+            "ATOM    109  C   SER A   3       8.000   0.000   0.000  1.00  0.00           C",
+            "END",
+            "",
+        ]
+    )
+
+    archive_path = tmp_path / "coords.h5"
+    external_pdb = tmp_path / "external.pdb"
+
+    external_pdb.write_text(external_pdb_text)
+
+    coords = np.zeros((1, 9, 3), dtype=np.float64)
+
+    with h5py.File(archive_path, "w") as h5:
+        metadata = h5.create_group("metadata")
+        metadata.create_dataset(
+            "reference_pdb",
+            data=archive_pdb_text.encode("utf-8"),
+        )
+        metadata.create_dataset("pixel_size", data=1.0)
+
+        frames = h5.create_group("frames")
+        frames.create_dataset("raw", data=coords)
+        frames.create_dataset("registered", data=coords)
+        frames.create_dataset("rotated", data=coords)
+
+    with MdspaceHdf5(archive_path) as archive:
+        selection = archive.selection_from_pdb(external_pdb, selection="ca")
+
+    # Archive C-alpha atoms are absolute indices:
+    # ALA A1 CA -> 1
+    # GLY A2 CA -> 4
+    # SER A3 CA -> 7
+    #
+    # External parsed atoms are also absolute indices in the external PDB atom list:
+    # ALA A1 CA -> 1
+    # SER A3 CA -> 4
+    #
+    # External PDB contains ALA A1 and SER A3, but not GLY A2.
+    np.testing.assert_array_equal(
+        selection.left, np.asarray([1, 7], dtype=int))
+    np.testing.assert_array_equal(
+        selection.right, np.asarray([1, 4], dtype=int))
+    assert selection.size == 2
+
+
+def test_selection_from_pdb_indices_can_select_coordinates(
+        tmp_path: Path) -> None:
+    archive_pdb_text = "\n".join(
+        [
+            "ATOM      1  N   ALA A   1       0.000   0.000   0.000  1.00  0.00           N",
+            "ATOM      2  CA  ALA A   1       1.000   0.000   0.000  1.00  0.00           C",
+            "ATOM      3  C   ALA A   1       2.000   0.000   0.000  1.00  0.00           C",
+            "ATOM      4  N   GLY A   2       3.000   0.000   0.000  1.00  0.00           N",
+            "ATOM      5  CA  GLY A   2       4.000   0.000   0.000  1.00  0.00           C",
+            "ATOM      6  C   GLY A   2       5.000   0.000   0.000  1.00  0.00           C",
+            "ATOM      7  N   SER A   3       6.000   0.000   0.000  1.00  0.00           N",
+            "ATOM      8  CA  SER A   3       7.000   0.000   0.000  1.00  0.00           C",
+            "ATOM      9  C   SER A   3       8.000   0.000   0.000  1.00  0.00           C",
+            "END",
+            "",
+        ]
+    )
+
+    external_pdb_text = "\n".join(
+        [
+            "ATOM    102  CA  ALA A   1       1.000   0.000   0.000  1.00  0.00           C",
+            "ATOM    108  CA  SER A   3       7.000   0.000   0.000  1.00  0.00           C",
+            "END",
+            "",
+        ]
+    )
+
+    archive_path = tmp_path / "coords.h5"
+    external_pdb = tmp_path / "external.pdb"
+
+    external_pdb.write_text(external_pdb_text)
+
+    coords = np.asarray(
+        [
+            [
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+                [3.0, 0.0, 0.0],
+                [4.0, 0.0, 0.0],
+                [5.0, 0.0, 0.0],
+                [6.0, 0.0, 0.0],
+                [7.0, 0.0, 0.0],
+                [8.0, 0.0, 0.0],
+            ]
+        ],
+        dtype=np.float64,
+    )
+
+    with h5py.File(archive_path, "w") as h5:
+        metadata = h5.create_group("metadata")
+        metadata.create_dataset(
+            "reference_pdb",
+            data=archive_pdb_text.encode("utf-8"),
+        )
+        metadata.create_dataset("pixel_size", data=1.0)
+
+        frames = h5.create_group("frames")
+        frames.create_dataset("raw", data=coords)
+        frames.create_dataset("registered", data=coords)
+        frames.create_dataset("rotated", data=coords)
+
+    with MdspaceHdf5(archive_path) as archive:
+        selection = archive.selection_from_pdb(external_pdb, selection="ca")
+        selected = archive.raw(0, selection=selection.left)
+
+    expected = np.asarray(
+        [
+            [1.0, 0.0, 0.0],
+            [7.0, 0.0, 0.0],
+        ],
+        dtype=np.float64,
+    )
+
+    np.testing.assert_array_equal(
+        selection.left, np.asarray([1, 7], dtype=int))
+    np.testing.assert_array_equal(
+        selection.right, np.asarray([0, 1], dtype=int))
+    np.testing.assert_array_equal(selected, expected)

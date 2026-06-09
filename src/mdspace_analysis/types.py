@@ -1,5 +1,8 @@
 from dataclasses import dataclass
 
+import numpy as np
+from numpy.typing import NDArray
+
 
 @dataclass(frozen=True)
 class EulerTransform:
@@ -28,3 +31,21 @@ class EulerTransform:
             self.shift_y * pixel_size,
             self.shift_z * pixel_size,
         )
+
+
+@dataclass(frozen=True)
+class PairedAtomSelection:
+    """Paired atom selection.
+
+    left[i] and right[i] refer to the same biological atom.
+    """
+
+    left: NDArray[np.int_]
+    right: NDArray[np.int_]
+
+    @property
+    def size(self) -> int:
+        return int(self.left.size)
+
+    def __len__(self) -> int:
+        return self.size

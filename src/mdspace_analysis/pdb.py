@@ -16,6 +16,27 @@ class PdbAtom:
     altloc: str
     element: str
 
+    @property
+    def is_ca(self) -> bool:
+        return self.name == "CA"
+
+    @property
+    def identity_key(self) -> tuple[str, str, str]:
+        return (
+            str(self.chain),
+            str(self.resid),
+            str(self.name),
+        )
+
+    @property
+    def identity_key_no_resname(self) -> tuple[str, str, str, str]:
+        return (
+            str(self.chain),
+            str(self.resid),
+            str(self.altloc or ""),
+            str(self.name),
+        )
+
 
 def parse_pdb_atoms(pdb_text: str) -> list[PdbAtom]:
     """Parse atom metadata from PDB text.
