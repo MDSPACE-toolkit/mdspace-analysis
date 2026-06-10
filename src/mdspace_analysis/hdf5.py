@@ -153,8 +153,8 @@ class MdspaceHdf5:
 
         if frame < 0 or frame >= self.n_frames:
             raise IndexError(
-                f"Frame index out of range: {frame}; archive has {
-                    self.n_frames} frames"
+                f"Frame index out of range: {frame}; "
+                f"archive has {self.n_frames} frames"
             )
 
         data = self._h5[dataset][frame]
@@ -226,8 +226,8 @@ class MdspaceHdf5:
 
             if name in mapping:
                 raise ValueError(
-                    f"Duplicate image filename in archive: {
-                        name!r}")
+                    f"Duplicate image filename in archive: {name!r}"
+                )
 
             mapping[name] = frame
 
@@ -462,8 +462,8 @@ class MdspaceHdf5:
             normalized = selection.lower()
         else:
             raise TypeError(
-                f"Unsupported external PDB selection: {
-                    selection!r}")
+                f"Unsupported external PDB selection: {selection!r}"
+            )
 
         if normalized not in {"ca", "calpha", "c-alpha"}:
             raise ValueError(

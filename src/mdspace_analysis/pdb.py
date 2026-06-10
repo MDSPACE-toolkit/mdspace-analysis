@@ -21,7 +21,7 @@ class PdbAtom:
         return self.name == "CA"
 
     @property
-    def identity_key(self) -> tuple[str, str, str]:
+    def identity_key(self) -> tuple[str, int, str]:
         return (
             str(self.chain),
             str(self.resid),
@@ -29,7 +29,7 @@ class PdbAtom:
         )
 
     @property
-    def identity_key_no_resname(self) -> tuple[str, str, str, str]:
+    def identity_key_no_resname(self) -> tuple[str, int, str, str]:
         return (
             str(self.chain),
             str(self.resid),
@@ -67,8 +67,8 @@ def parse_pdb_atoms(pdb_text: str) -> list[PdbAtom]:
             resid = int(line[22:26])
         except ValueError as exc:
             raise ValueError(
-                f"Invalid residue number in PDB line: {
-                    line!r}") from exc
+                f"Invalid residue number in PDB line: {line!r}"
+            ) from exc
 
         element = line[76:78].strip() if len(line) >= 78 else ""
 

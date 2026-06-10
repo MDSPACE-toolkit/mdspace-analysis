@@ -46,8 +46,8 @@ def align_coordinates(
 
     if mobile.ndim != 2 or mobile.shape[1] != 3:
         raise ValueError(
-            f"Expected arrays with shape (n_points, 3), got {
-                mobile.shape}")
+            f"Expected arrays with shape (n_points, 3), got {mobile.shape}"
+        )
 
     mobile_centroid = mobile.mean(axis=0)
     reference_centroid = reference.mean(axis=0)
@@ -80,14 +80,14 @@ def rmsd(a: np.ndarray, b: np.ndarray) -> float:
 
     if a.shape != b.shape:
         raise ValueError(
-            f"Shape mismatch: a has shape {
-                a.shape}, b has shape {
-                b.shape}")
+            f"Shape mismatch: a has shape {a.shape}, "
+            f"b has shape {b.shape}"
+        )
 
     if a.ndim != 2 or a.shape[1] != 3:
         raise ValueError(
-            f"Expected arrays with shape (n_points, 3), got {
-                a.shape}")
+            f"Expected arrays with shape (n_points, 3), got {a.shape}"
+        )
 
     diff = a - b
     return float(np.sqrt(np.mean(np.sum(diff * diff, axis=1))))
