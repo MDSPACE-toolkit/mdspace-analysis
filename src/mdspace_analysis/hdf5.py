@@ -547,3 +547,72 @@ class MdspaceHdf5:
             archive.reference_pdb_text,
             selection=selection,
         )
+
+    def reference_coordinates(self, selection: Selection = None) -> np.ndarray:
+        """Coordinates parsed from the reference PDB stored in the archive.
+
+        The coordinates are read from ``/metadata/reference_pdb`` and returned in
+        Angstroms.
+
+        This is different from :meth:`raw`, :meth:`registered` and :meth:`rotated`:
+
+        - ``raw(frame)`` returns coordinates from one stored MDSPACE output frame;
+        - ``registered(frame)`` returns the same frame after rigid-body alignment;
+        - ``rotated(frame)`` returns the same frame in image-pose coordinates;
+        - ``reference_coordinates()`` returns the original reference structure
+          stored as PDB text in the HDF5 metadata.
+
+        This method is useful when the original input structure must be compared
+        with recovered structures, for example to display the initial 6RAH
+        conformation in a PCA plot.
+
+        Parameters
+        ----------
+        selection:
+            Atom selection to apply to the reference coordinates.
+
+            Accepted values are the same as for :meth:`raw`:
+
+            - ``None`` or ``"all"``: return all atoms;
+            - ``"ca"``, ``"calpha"`` or ``"c-alpha"``: return C-alpha atoms;
+            - a one-dimensional sequence of atom indices;
+            - a combined tuple/list selection supported by
+              :meth:`_selection_to_indices`.
+
+        Returns
+        -------
+        numpy.ndarray
+            Coordinate array with shape ``(n_selected_atoms, 3)``, in Angstroms.
+
+        Raises
+        ------
+        ValueError
+            If the reference PDB contains malformed atom lines or no atom
+            coordinates.
+
+        KeyError
+            If ``/metadata/reference_pdb`` is not present in the archive.
+        """
+
+        coords = []
+
+        for line in self.reference_pdb_text.splitlines():
+            if not (line.startswith("ATOM") or line.startswith("HETATM")):
+                continue
+
+            if len(line) < 54:
+                raise ValueError(f"Malformed PDB atom line: {line!r}")
+
+            coords.append([
+                float(line[30:38]),
+                float(line[38:46]),
+                float(line[46:54]),
+            ])
+
+        if not coords:
+            raise ValueError(
+                "No ATOM/HETATM coordinates found in reference PDB")
+
+        coords = np.asarray(coords, dtype=float)
+
+        return self._select(coords, selection)

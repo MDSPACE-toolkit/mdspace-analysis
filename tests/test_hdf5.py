@@ -410,3 +410,112 @@ def test_selection_from_pdb_indices_can_select_coordinates(
     np.testing.assert_array_equal(
         selection.right, np.asarray([0, 1], dtype=int))
     np.testing.assert_array_equal(selected, expected)
+
+
+def test_reference_coordinates_support_calpha_selection(
+        tmp_path: Path) -> None:
+    reference_pdb_text = "\n".join(
+        [
+            "ATOM      1  N   ALA A   1      10.000  20.000  30.000  1.00  0.00           N",
+            "ATOM      2  CA  ALA A   1      11.000  21.000  31.000  1.00  0.00           C",
+            "ATOM      3  C   ALA A   1      12.000  22.000  32.000  1.00  0.00           C",
+            "ATOM      4  N   GLY A   2      13.000  23.000  33.000  1.00  0.00           N",
+            "ATOM      5  CA  GLY A   2      14.000  24.000  34.000  1.00  0.00           C",
+            "ATOM      6  C   GLY A   2      15.000  25.000  35.000  1.00  0.00           C",
+            "END",
+            "",
+        ]
+    )
+
+    archive_path = tmp_path / "coords.h5"
+    coords = np.zeros((1, 6, 3), dtype=np.float64)
+
+    with h5py.File(archive_path, "w") as h5:
+        metadata = h5.create_group("metadata")
+        metadata.create_dataset(
+            "reference_pdb",
+            data=reference_pdb_text.encode("utf-8"),
+        )
+        metadata.create_dataset("pixel_size", data=1.0)
+
+        frames = h5.create_group("frames")
+        frames.create_dataset("raw", data=coords)
+        frames.create_dataset("registered", data=coords)
+        frames.create_dataset("rotated", data=coords)
+
+    with MdspaceHdf5(archive_path) as archive:
+        ca_reference = archive.reference_coordinates(selection="ca")
+
+    expected = np.asarray(
+        [
+            [11.0, 21.0, 31.0],
+            [14.0, 24.0, 34.0],
+        ],
+        dtype=np.float64,
+    )
+
+    np.testing.assert_array_equal(ca_reference, expected)
+
+
+def test_reference_coordinates_are_read_from_reference_pdb(
+        tmp_path: Path) -> None:
+    reference_pdb_text = "\n".join(
+        [
+            "ATOM      1  N   ALA A   1      10.000  20.000  30.000  1.00  0.00           N",
+            "ATOM      2  CA  ALA A   1      11.000  21.000  31.000  1.00  0.00           C",
+            "ATOM      3  C   ALA A   1      12.000  22.000  32.000  1.00  0.00           C",
+            "ATOM      4  N   GLY A   2      13.000  23.000  33.000  1.00  0.00           N",
+            "ATOM      5  CA  GLY A   2      14.000  24.000  34.000  1.00  0.00           C",
+            "ATOM      6  C   GLY A   2      15.000  25.000  35.000  1.00  0.00           C",
+            "END",
+            "",
+        ]
+    )
+
+    archive_path = tmp_path / "coords.h5"
+
+    # Deliberately different from the coordinates in reference_pdb_text.
+    # This ensures reference_coordinates() is not silently reading /frames/raw.
+    raw_coords = np.asarray(
+        [
+            [
+                [100.0, 200.0, 300.0],
+                [101.0, 201.0, 301.0],
+                [102.0, 202.0, 302.0],
+                [103.0, 203.0, 303.0],
+                [104.0, 204.0, 304.0],
+                [105.0, 205.0, 305.0],
+            ]
+        ],
+        dtype=np.float64,
+    )
+
+    with h5py.File(archive_path, "w") as h5:
+        metadata = h5.create_group("metadata")
+        metadata.create_dataset(
+            "reference_pdb",
+            data=reference_pdb_text.encode("utf-8"),
+        )
+        metadata.create_dataset("pixel_size", data=1.0)
+
+        frames = h5.create_group("frames")
+        frames.create_dataset("raw", data=raw_coords)
+        frames.create_dataset("registered", data=raw_coords)
+        frames.create_dataset("rotated", data=raw_coords)
+
+    with MdspaceHdf5(archive_path) as archive:
+        reference = archive.reference_coordinates()
+
+    expected = np.asarray(
+        [
+            [10.0, 20.0, 30.0],
+            [11.0, 21.0, 31.0],
+            [12.0, 22.0, 32.0],
+            [13.0, 23.0, 33.0],
+            [14.0, 24.0, 34.0],
+            [15.0, 25.0, 35.0],
+        ],
+        dtype=np.float64,
+    )
+
+    np.testing.assert_array_equal(reference, expected)
